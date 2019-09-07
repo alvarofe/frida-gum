@@ -468,6 +468,44 @@ Object.defineProperties(Stalker, {
   }
 });
 
+const objectBuiltins = {
+  prototype: true,
+  toJSON: true,
+};
+
+global.CModule = function (source, symbols = {}) {
+  const m = new _CModule(source, symbols);
+
+  return new Proxy(this, {
+    has(target, property) {
+      if (property in objectBuiltins)
+        return property in target;
+
+      if (m.findSymbolByName(property) !== null)
+        return true;
+
+      return property in target;
+    },
+    get(target, property, receiver) {
+      if (property in objectBuiltins || typeof property === 'symbol')
+        return target[property];
+
+      const address = m.findSymbolByName(property);
+      if (address !== null)
+        return address;
+
+      return target[property];
+    },
+    getOwnPropertyDescriptor(target, property) {
+      return {
+        writable: false,
+        configurable: true,
+        enumerable: true
+      };
+    },
+  });
+};
+
 Object.defineProperty(Instruction, 'parse', {
   enumerable: true,
   value: function (target) {

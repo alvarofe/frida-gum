@@ -252,6 +252,13 @@ TESTLIST_BEGIN (script)
     TESTENTRY (functions_can_be_found_by_matching)
   TESTGROUP_END ()
 
+  TESTGROUP_BEGIN ("CModule")
+    TESTENTRY (cmodule_can_be_defined)
+    TESTENTRY (cmodule_symbols_can_be_provided)
+    TESTENTRY (cmodule_should_report_parsing_errors)
+    TESTENTRY (cmodule_should_report_linking_errors)
+  TESTGROUP_END ()
+
   TESTGROUP_BEGIN ("Instruction")
     TESTENTRY (instruction_can_be_parsed)
     TESTENTRY (instruction_can_be_generated)
@@ -352,6 +359,67 @@ static int target_function_nested_b (int arg);
 static int target_function_nested_c (int arg);
 
 gint gum_script_dummy_global_to_trick_optimizer = 0;
+
+TESTCASE (cmodule_can_be_defined)
+{
+  int (* add_impl) (int a, int b);
+
+  COMPILE_AND_LOAD_SCRIPT (
+      "var m = new CModule('"
+      ""
+      "int\\n"
+      "add (int a, int b)\\n"
+      "{\\n"
+      "  return a + b;\\n"
+      "}"
+      "');"
+      "send(m.add);");
+
+  add_impl = EXPECT_SEND_MESSAGE_WITH_POINTER ();
+  g_assert_nonnull (add_impl);
+  g_assert_cmpint (add_impl (3, 4), ==, 7);
+}
+
+TESTCASE (cmodule_symbols_can_be_provided)
+{
+  int a = 42;
+  int b = 1337;
+  int (* get_magic_impl) (void);
+
+  COMPILE_AND_LOAD_SCRIPT (
+      "var m = new CModule('"
+      ""
+      "extern int a;\\n"
+      "extern int b;\\n"
+      "\\n"
+      "int\\n"
+      "get_magic (void)\\n"
+      "{\\n"
+      "  return a + b;\\n"
+      "}"
+      "', { a: " GUM_PTR_CONST ", b: " GUM_PTR_CONST " });"
+      "send(m.get_magic);",
+      &a, &b);
+
+  get_magic_impl = EXPECT_SEND_MESSAGE_WITH_POINTER ();
+  g_assert_nonnull (get_magic_impl);
+  g_assert_cmpint (get_magic_impl (), ==, 1379);
+}
+
+TESTCASE (cmodule_should_report_parsing_errors)
+{
+  COMPILE_AND_LOAD_SCRIPT ("new CModule('void foo (int a');");
+  EXPECT_ERROR_MESSAGE_MATCHING (ANY_LINE_NUMBER,
+      "Error: Compilation failed.+");
+}
+
+TESTCASE (cmodule_should_report_linking_errors)
+{
+  COMPILE_AND_LOAD_SCRIPT ("new CModule('"
+      "extern int v; int f (void) { return v; }');");
+  EXPECT_ERROR_MESSAGE_WITH (ANY_LINE_NUMBER,
+      "Error: Compilation failed: tcc: error: undefined symbol 'v'");
+}
 
 TESTCASE (instruction_can_be_parsed)
 {
@@ -1134,7 +1202,6 @@ TESTCASE (native_function_is_a_native_pointer)
 
 TESTCASE (native_callback_can_be_invoked)
 {
-  TestScriptMessageItem * item;
   gint (* toupper_impl) (gchar * str, gint limit);
   gchar str[7];
 
@@ -1154,11 +1221,8 @@ TESTCASE (native_callback_can_be_invoked)
       "gc();"
       "send(toupper);");
 
-  item = test_script_fixture_pop_message (fixture);
-  sscanf (item->message, "{\"type\":\"send\",\"payload\":"
-      "\"0x%" G_GSIZE_MODIFIER "x\"}", (gsize *) &toupper_impl);
+  toupper_impl = EXPECT_SEND_MESSAGE_WITH_POINTER ();
   g_assert_nonnull (toupper_impl);
-  test_script_message_item_free (item);
 
   strcpy (str, "badger");
   g_assert_cmpint (toupper_impl (str, 3), ==, 3);
@@ -4554,7 +4618,6 @@ TESTCASE (pointer_can_be_written_legacy_style)
 
 TESTCASE (memory_can_be_allocated)
 {
-  TestScriptMessageItem * item;
   gsize p;
 
   COMPILE_AND_LOAD_SCRIPT (
@@ -4572,12 +4635,8 @@ TESTCASE (memory_can_be_allocated)
   COMPILE_AND_LOAD_SCRIPT (
       "var p = Memory.alloc(Process.pageSize);"
       "send(p);");
-  item = test_script_fixture_pop_message (fixture);
-  p = 0;
-  sscanf (item->message, "{\"type\":\"send\",\"payload\":"
-      "\"0x%" G_GSIZE_MODIFIER "x\"}", &p);
+  p = GPOINTER_TO_SIZE (EXPECT_SEND_MESSAGE_WITH_POINTER ());
   g_assert_cmpuint (p, !=, 0);
-  test_script_message_item_free (item);
   g_assert_cmpuint (p & (gum_query_page_size () - 1), ==, 0);
 
   COMPILE_AND_LOAD_SCRIPT(

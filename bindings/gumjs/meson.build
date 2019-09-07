@@ -16,6 +16,7 @@ gumjs_sources = [
   'gumsourcemap.c',
   'gummemoryvfs.c',
   'gumffi.c',
+  'gumcmodule.c',
 ]
 
 if have_duktape
@@ -40,6 +41,7 @@ if have_duktape
     'gumdukeventsink.c',
     'gumdukapiresolver.c',
     'gumduksymbol.c',
+    'gumdukcmodule.c',
     'gumdukinstruction.c',
     'gumdukcodewriter.c',
     'gumdukcoderelocator.c',
@@ -72,6 +74,7 @@ if have_v8
     'gumv8eventsink.cpp',
     'gumv8apiresolver.cpp',
     'gumv8symbol.cpp',
+    'gumv8cmodule.cpp',
     'gumv8instruction.cpp',
     'gumv8codewriter.cpp',
     'gumv8coderelocator.cpp',
@@ -174,7 +177,7 @@ gumjs = library('frida-gumjs-' + api_version, gumjs_sources,
   c_args: frida_component_cflags,
   override_options: ['cpp_std=c++11'],
   include_directories: [bindings_inc],
-  dependencies: [gum_dep, gio_dep, json_glib_dep, ffi_dep, sqlite_dep, libsoup_dep] + gumjs_extra_deps,
+  dependencies: [gum_dep, gio_dep, json_glib_dep, ffi_dep, tinycc_dep, sqlite_dep, libsoup_dep] + gumjs_extra_deps,
   install: true,
 )
 
