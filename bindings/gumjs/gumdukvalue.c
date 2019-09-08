@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Ole André Vadla Ravnås <oleavr@nowsecure.com>
+ * Copyright (C) 2015-2019 Ole André Vadla Ravnås <oleavr@nowsecure.com>
  *
  * Licence: wxWindows Library Licence, Version 3.1
  */
@@ -276,8 +276,13 @@ _gum_duk_args_parse (const GumDukArgs * args,
       }
       case 'F':
       {
-        GumDukHeapPtr func;
-        gboolean is_expecting_object, is_nullable;
+        GumDukHeapPtr func_js;
+        gpointer func_c;
+        gboolean accepts_pointer, is_expecting_object, is_nullable;
+
+        accepts_pointer = t[1] == '*';
+        if (accepts_pointer)
+          t++;
 
         is_expecting_object = t[1] == '{';
         if (is_expecting_object)
@@ -310,11 +315,18 @@ _gum_duk_args_parse (const GumDukArgs * args,
             duk_get_prop_string (ctx, arg_index, name);
             if (duk_is_function (ctx, -1))
             {
-              func = duk_require_heapptr (ctx, -1);
+              func_js = duk_require_heapptr (ctx, -1);
+              func_c = NULL;
             }
             else if (is_nullable && duk_is_null_or_undefined (ctx, -1))
             {
-              func = NULL;
+              func_js = NULL;
+              func_c = NULL;
+            }
+            else if (accepts_pointer &&
+                _gum_duk_get_pointer (ctx, -1, core, &func_c))
+            {
+              func_js = NULL;
             }
             else
             {
@@ -323,7 +335,9 @@ _gum_duk_args_parse (const GumDukArgs * args,
             }
             duk_pop (ctx);
 
-            *va_arg (ap, GumDukHeapPtr *) = func;
+            *va_arg (ap, GumDukHeapPtr *) = func_js;
+            if (accepts_pointer)
+              *va_arg (ap, gpointer *) = func_c;
 
             t = t_end + 1;
           }
@@ -338,13 +352,28 @@ _gum_duk_args_parse (const GumDukArgs * args,
             t++;
 
           if (duk_is_function (ctx, arg_index))
-            func = duk_require_heapptr (ctx, arg_index);
+          {
+            func_js = duk_require_heapptr (ctx, arg_index);
+            func_c = NULL;
+          }
           else if (is_nullable && duk_is_null (ctx, arg_index))
-            func = NULL;
+          {
+            func_js = NULL;
+            func_c = NULL;
+          }
+          else if (accepts_pointer &&
+              _gum_duk_get_pointer (ctx, arg_index, core, &func_c))
+          {
+            func_js = NULL;
+          }
           else
+          {
             goto expected_function;
+          }
 
-          *va_arg (ap, GumDukHeapPtr *) = func;
+          *va_arg (ap, GumDukHeapPtr *) = func_js;
+          if (accepts_pointer)
+            *va_arg (ap, gpointer *) = func_c;
         }
 
         break;

@@ -18,12 +18,18 @@ struct _GumCModule
 
 static void gum_propagate_tcc_error (void * opaque, const char * msg);
 
+static const gchar * gum_cmodule_builtins =
+    "typedef struct _InvocationContext InvocationContext;\n"
+    "void* getArg(InvocationContext* ctx, unsigned int n);\n"
+    ;
+
 GumCModule *
 gum_cmodule_new (const gchar * source,
                  GError ** error)
 {
   GumCModule * cmodule;
   TCCState * state;
+  gchar * combined_source;
   gint res;
 
   cmodule = g_slice_new0 (GumCModule);
@@ -36,12 +42,18 @@ gum_cmodule_new (const gchar * source,
   tcc_set_options (state, "-nostdlib");
   tcc_set_output_type (state, TCC_OUTPUT_MEMORY);
 
-  res = tcc_compile_string (state, source);
+  combined_source = g_strconcat (gum_cmodule_builtins, source, NULL);
+
+  res = tcc_compile_string (state, combined_source);
+
+  g_free (combined_source);
 
   tcc_set_error_func (state, NULL, NULL);
 
   if (res == -1)
     goto failure;
+
+  tcc_add_symbol (state, "getArg", gum_invocation_context_get_nth_argument);
 
   return cmodule;
 

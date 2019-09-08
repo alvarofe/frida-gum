@@ -257,6 +257,7 @@ TESTLIST_BEGIN (script)
     TESTENTRY (cmodule_symbols_can_be_provided)
     TESTENTRY (cmodule_should_report_parsing_errors)
     TESTENTRY (cmodule_should_report_linking_errors)
+    TESTENTRY (cmodule_can_be_used_with_interceptor)
   TESTGROUP_END ()
 
   TESTGROUP_BEGIN ("Instruction")
@@ -359,67 +360,6 @@ static int target_function_nested_b (int arg);
 static int target_function_nested_c (int arg);
 
 gint gum_script_dummy_global_to_trick_optimizer = 0;
-
-TESTCASE (cmodule_can_be_defined)
-{
-  int (* add_impl) (int a, int b);
-
-  COMPILE_AND_LOAD_SCRIPT (
-      "var m = new CModule('"
-      ""
-      "int\\n"
-      "add (int a, int b)\\n"
-      "{\\n"
-      "  return a + b;\\n"
-      "}"
-      "');"
-      "send(m.add);");
-
-  add_impl = EXPECT_SEND_MESSAGE_WITH_POINTER ();
-  g_assert_nonnull (add_impl);
-  g_assert_cmpint (add_impl (3, 4), ==, 7);
-}
-
-TESTCASE (cmodule_symbols_can_be_provided)
-{
-  int a = 42;
-  int b = 1337;
-  int (* get_magic_impl) (void);
-
-  COMPILE_AND_LOAD_SCRIPT (
-      "var m = new CModule('"
-      ""
-      "extern int a;\\n"
-      "extern int b;\\n"
-      "\\n"
-      "int\\n"
-      "get_magic (void)\\n"
-      "{\\n"
-      "  return a + b;\\n"
-      "}"
-      "', { a: " GUM_PTR_CONST ", b: " GUM_PTR_CONST " });"
-      "send(m.get_magic);",
-      &a, &b);
-
-  get_magic_impl = EXPECT_SEND_MESSAGE_WITH_POINTER ();
-  g_assert_nonnull (get_magic_impl);
-  g_assert_cmpint (get_magic_impl (), ==, 1379);
-}
-
-TESTCASE (cmodule_should_report_parsing_errors)
-{
-  COMPILE_AND_LOAD_SCRIPT ("new CModule('void foo (int a');");
-  EXPECT_ERROR_MESSAGE_MATCHING (ANY_LINE_NUMBER,
-      "Error: Compilation failed.+");
-}
-
-TESTCASE (cmodule_should_report_linking_errors)
-{
-  COMPILE_AND_LOAD_SCRIPT ("new CModule('"
-      "extern int v; int f (void) { return v; }');");
-  EXPECT_ERROR_MESSAGE_WITH (ANY_LINE_NUMBER,
-      "Error: Compilation failed: tcc: error: undefined symbol 'v'");
-}
 
 TESTCASE (instruction_can_be_parsed)
 {
@@ -5396,6 +5336,88 @@ TESTCASE (invalid_read_write_execute_results_in_exception)
       "}");
   EXPECT_SEND_MESSAGE_WITH ("true");
   EXPECT_NO_MESSAGES ();
+}
+
+TESTCASE (cmodule_can_be_defined)
+{
+  int (* add_impl) (int a, int b);
+
+  COMPILE_AND_LOAD_SCRIPT (
+      "var m = new CModule('"
+      ""
+      "int\\n"
+      "add (int a, int b)\\n"
+      "{\\n"
+      "  return a + b;\\n"
+      "}"
+      "');"
+      "send(m.add);");
+
+  add_impl = EXPECT_SEND_MESSAGE_WITH_POINTER ();
+  g_assert_nonnull (add_impl);
+  g_assert_cmpint (add_impl (3, 4), ==, 7);
+}
+
+TESTCASE (cmodule_symbols_can_be_provided)
+{
+  int a = 42;
+  int b = 1337;
+  int (* get_magic_impl) (void);
+
+  COMPILE_AND_LOAD_SCRIPT (
+      "var m = new CModule('"
+      ""
+      "extern int a;\\n"
+      "extern int b;\\n"
+      "\\n"
+      "int\\n"
+      "get_magic (void)\\n"
+      "{\\n"
+      "  return a + b;\\n"
+      "}"
+      "', { a: " GUM_PTR_CONST ", b: " GUM_PTR_CONST " });"
+      "send(m.get_magic);",
+      &a, &b);
+
+  get_magic_impl = EXPECT_SEND_MESSAGE_WITH_POINTER ();
+  g_assert_nonnull (get_magic_impl);
+  g_assert_cmpint (get_magic_impl (), ==, 1379);
+}
+
+TESTCASE (cmodule_should_report_parsing_errors)
+{
+  COMPILE_AND_LOAD_SCRIPT ("new CModule('void foo (int a');");
+  EXPECT_ERROR_MESSAGE_MATCHING (ANY_LINE_NUMBER,
+      "Error: Compilation failed.+");
+}
+
+TESTCASE (cmodule_should_report_linking_errors)
+{
+  COMPILE_AND_LOAD_SCRIPT ("new CModule('"
+      "extern int v; int f (void) { return v; }');");
+  EXPECT_ERROR_MESSAGE_WITH (ANY_LINE_NUMBER,
+      "Error: Compilation failed: tcc: error: undefined symbol 'v'");
+}
+
+TESTCASE (cmodule_can_be_used_with_interceptor)
+{
+  int seen_arg = -1;
+
+  COMPILE_AND_LOAD_SCRIPT (
+      "Interceptor.attach(" GUM_PTR_CONST ", new CModule('\\n"
+      "  extern int seenArg;\\n"
+      "  void onEnter(InvocationContext* ic) {\\n"
+      "    seenArg = (int) getArg(ic, 0);\\n"
+      "  }\\n"
+      "  void onLeave(InvocationContext* ic) {\\n"
+      "  }\\n"
+      "', { seenArg: " GUM_PTR_CONST " }));",
+      target_function_int, &seen_arg);
+
+  EXPECT_NO_MESSAGES ();
+
+  target_function_int (42);
+  g_assert_cmpint (seen_arg, ==, 42);
 }
 
 TESTCASE (script_can_be_compiled_to_bytecode)
