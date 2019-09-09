@@ -18,20 +18,27 @@ struct _GumCModule
 
 static void gum_propagate_tcc_error (void * opaque, const char * msg);
 
-static const gchar * gum_cmodule_builtins =
-    "typedef void * gpointer;\n"
-    "typedef int gint;\n"
-    "typedef unsigned int guint;\n"
-    "typedef struct _GumInvocationContext GumInvocationContext;\n"
-    "gpointer gum_invocation_context_get_nth_argument ("
-        "GumInvocationContext * ctx, guint n);\n"
-    "void gum_invocation_context_replace_nth_argument ("
-        "GumInvocationContext * context, guint n, gpointer value);\n"
-    "gpointer gum_invocation_context_get_return_value ("
-        "GumInvocationContext * context);\n"
-    "void gum_invocation_context_replace_return_value ("
-        "GumInvocationContext * context, gpointer value);\n"
-    ;
+static const gchar * gum_cmodule_builtins[] =
+{
+  "int strcmp (const char * s1, const char * s2);",
+  "char * strstr (const char * haystack, const char * needle);",
+  "char * strchr (const char * s, int c);",
+  "char * strrchr (const char * s, int c);",
+
+  "typedef void * gpointer;",
+  "typedef int gint;",
+  "typedef unsigned int guint;",
+
+  "typedef struct _GumInvocationContext GumInvocationContext;",
+  "gpointer gum_invocation_context_get_nth_argument ("
+      "GumInvocationContext * ctx, guint n);",
+  "void gum_invocation_context_replace_nth_argument ("
+      "GumInvocationContext * context, guint n, gpointer value);",
+  "gpointer gum_invocation_context_get_return_value ("
+      "GumInvocationContext * context);",
+  "void gum_invocation_context_replace_return_value ("
+      "GumInvocationContext * context, gpointer value);",
+};
 
 GumCModule *
 gum_cmodule_new (const gchar * source,
@@ -39,7 +46,8 @@ gum_cmodule_new (const gchar * source,
 {
   GumCModule * cmodule;
   TCCState * state;
-  gchar * combined_source;
+  GString * combined_source;
+  guint i;
   gint res;
 
   cmodule = g_slice_new0 (GumCModule);
@@ -52,11 +60,21 @@ gum_cmodule_new (const gchar * source,
   tcc_set_options (state, "-nostdlib");
   tcc_set_output_type (state, TCC_OUTPUT_MEMORY);
 
-  combined_source = g_strconcat (gum_cmodule_builtins, source, NULL);
+  combined_source = g_string_sized_new (256);
 
-  res = tcc_compile_string (state, combined_source);
+  g_string_append (combined_source, "#line 1 \"gum-cmodule-builtins.h\"\n");
+  for (i = 0; i != G_N_ELEMENTS (gum_cmodule_builtins); i++)
+  {
+    g_string_append (combined_source, gum_cmodule_builtins[i]);
+    g_string_append_c (combined_source, '\n');
+  }
 
-  g_free (combined_source);
+  g_string_append (combined_source, "#line 1 \"module.c\"\n");
+  g_string_append (combined_source, source);
+
+  res = tcc_compile_string (state, combined_source->str);
+
+  g_string_free (combined_source, TRUE);
 
   tcc_set_error_func (state, NULL, NULL);
 
@@ -65,6 +83,11 @@ gum_cmodule_new (const gchar * source,
 
 #define GUM_ADD_SYMBOL(name) \
   tcc_add_symbol (state, G_STRINGIFY (name), name)
+
+  GUM_ADD_SYMBOL (strcmp);
+  GUM_ADD_SYMBOL (strstr);
+  GUM_ADD_SYMBOL (strchr);
+  GUM_ADD_SYMBOL (strrchr);
 
   GUM_ADD_SYMBOL (gum_invocation_context_get_nth_argument);
   GUM_ADD_SYMBOL (gum_invocation_context_replace_nth_argument);

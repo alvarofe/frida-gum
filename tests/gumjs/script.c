@@ -258,6 +258,7 @@ TESTLIST_BEGIN (script)
     TESTENTRY (cmodule_should_report_parsing_errors)
     TESTENTRY (cmodule_should_report_linking_errors)
     TESTENTRY (cmodule_can_be_used_with_interceptor)
+    TESTENTRY (cmodule_should_provide_some_builtin_string_functions)
   TESTGROUP_END ()
 
   TESTGROUP_BEGIN ("Instruction")
@@ -5428,6 +5429,37 @@ TESTCASE (cmodule_can_be_used_with_interceptor)
   g_assert_cmpint (target_function_int (1), ==, 42);
   g_assert_cmpint (seen_arg, ==, 1);
   g_assert_cmpint (seen_ret, ==, 90);
+}
+
+TESTCASE (cmodule_should_provide_some_builtin_string_functions)
+{
+  int (* score_impl) (const char * str);
+
+  COMPILE_AND_LOAD_SCRIPT (
+      "var m = new CModule('"
+      ""
+      "int\\n"
+      "score (const char * str)\\n"
+      "{\\n"
+      "  if (strcmp (str, \"1234\") == 0)\\n"
+      "    return 1;\\n"
+      "  if (strstr (str, \"badger\") == str + 4)\\n"
+      "    return 2;\\n"
+      "  if (strchr (str, \\'!\\') == str + 3)\\n"
+      "    return 3;\\n"
+      "  if (strrchr (str, \\'/\\') == str + 8)\\n"
+      "    return 4;\\n"
+      "  return -1;\\n"
+      "}"
+      "');"
+      "send(m.score);");
+
+  score_impl = EXPECT_SEND_MESSAGE_WITH_POINTER ();
+  g_assert_nonnull (score_impl);
+  g_assert_cmpint (score_impl ("1234"), ==, 1);
+  g_assert_cmpint (score_impl ("Goodbadger"), ==, 2);
+  g_assert_cmpint (score_impl ("Yay!"), ==, 3);
+  g_assert_cmpint (score_impl ("/path/to/file"), ==, 4);
 }
 
 TESTCASE (script_can_be_compiled_to_bytecode)
