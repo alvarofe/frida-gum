@@ -494,7 +494,7 @@ _gum_v8_interceptor_finalize (GumV8Interceptor * self)
 
 GUMJS_DEFINE_FUNCTION (gumjs_interceptor_attach)
 {
-  if (info.Length () < 2)
+  if (info.Length () < 3)
   {
     _gum_v8_throw_ascii_literal (isolate, "missing argument");
     return;
@@ -502,7 +502,6 @@ GUMJS_DEFINE_FUNCTION (gumjs_interceptor_attach)
 
   gpointer target, on_enter, on_leave;
   GumV8InvocationListener * listener;
-
   auto target_val = info[0];
   auto callback_val = info[1];
   auto native_pointer = Local<FunctionTemplate>::New (isolate,
@@ -569,8 +568,23 @@ GUMJS_DEFINE_FUNCTION (gumjs_interceptor_attach)
   listener->on_leave = on_leave;
   listener->module = module;
 
+  gpointer listener_function_data;
+  auto data_val = info[2];
+  if (!data_val->IsUndefined ())
+  {
+    if (!_gum_v8_native_pointer_get (data_val, &listener_function_data, core))
+    {
+      g_object_unref (listener);
+      return;
+    }
+  }
+  else
+  {
+    listener_function_data = NULL;
+  }
+
   auto attach_ret = gum_interceptor_attach (module->interceptor, target,
-      GUM_INVOCATION_LISTENER (listener), NULL);
+      GUM_INVOCATION_LISTENER (listener), listener_function_data);
 
   if (attach_ret == GUM_ATTACH_OK)
   {
@@ -633,19 +647,33 @@ GUMJS_DEFINE_FUNCTION (gumjs_interceptor_detach_all)
 
 GUMJS_DEFINE_FUNCTION (gumjs_interceptor_replace)
 {
-  gpointer target, replacement;
-  if (!_gum_v8_args_parse (args, "pp", &target, &replacement))
+  gpointer target, replacement_function;
+  Local<Value> replacement_data_value;
+  if (!_gum_v8_args_parse (args, "ppV", &target, &replacement_function,
+      &replacement_data_value))
     return;
-  auto replacement_value = info[1];
+  auto replacement_function_value = info[1];
+
+  gpointer replacement_data;
+  if (!replacement_data_value->IsUndefined ())
+  {
+    if (!_gum_v8_native_pointer_get (replacement_data_value, &replacement_data,
+        core))
+      return;
+  }
+  else
+  {
+    replacement_data = NULL;
+  }
 
   auto entry = g_slice_new (GumV8ReplaceEntry);
   entry->interceptor = module->interceptor;
   entry->target = target;
   entry->replacement = new GumPersistent<Value>::type (isolate,
-      replacement_value);
+      replacement_function_value);
 
   auto replace_ret = gum_interceptor_replace (module->interceptor, target,
-      replacement, NULL);
+      replacement_function, replacement_data);
 
   if (replace_ret == GUM_REPLACE_OK)
   {

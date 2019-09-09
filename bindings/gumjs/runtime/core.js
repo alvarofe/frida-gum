@@ -388,16 +388,16 @@ if (Process.findRangeByAddress === undefined) {
 Object.defineProperties(Interceptor, {
   attach: {
     enumerable: true,
-    value: function (target, callbacks) {
+    value: function (target, callbacks, data) {
       checkPointer(target);
-      return Interceptor._attach(target, callbacks);
+      return Interceptor._attach(target, callbacks, data);
     }
   },
   replace: {
     enumerable: true,
-    value: function (target, replacement) {
+    value: function (target, replacement, data) {
       checkPointer(target);
-      Interceptor._replace(target, replacement);
+      Interceptor._replace(target, replacement, data);
     }
   },
 });

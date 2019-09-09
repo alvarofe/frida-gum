@@ -221,9 +221,9 @@ static void gum_duk_interceptor_release_invocation_return_value (
 
 static const duk_function_list_entry gumjs_interceptor_functions[] =
 {
-  { "_attach", gumjs_interceptor_attach, 2 },
+  { "_attach", gumjs_interceptor_attach, 3 },
   { "detachAll", gumjs_interceptor_detach_all, 0 },
-  { "_replace", gumjs_interceptor_replace, 2 },
+  { "_replace", gumjs_interceptor_replace, 3 },
   { "revert", gumjs_interceptor_revert, 1 },
   { "flush", gumjs_interceptor_flush, 0 },
 
@@ -441,6 +441,7 @@ GUMJS_DEFINE_FUNCTION (gumjs_interceptor_attach)
   GumDukCore * core = args->core;
   gpointer target, on_enter, on_leave;
   GumDukInvocationListener * listener;
+  gpointer listener_function_data;
   GumAttachReturn attach_ret;
 
   self = gumjs_module_from_args (args);
@@ -490,12 +491,17 @@ GUMJS_DEFINE_FUNCTION (gumjs_interceptor_attach)
 
   duk_pop (ctx);
 
+  if (!duk_is_undefined (ctx, 2))
+    listener_function_data = _gum_duk_require_pointer (ctx, 2, core);
+  else
+    listener_function_data = NULL;
+
   listener->on_enter = on_enter;
   listener->on_leave = on_leave;
   listener->module = self;
 
   attach_ret = gum_interceptor_attach (self->interceptor, target,
-      GUM_INVOCATION_LISTENER (listener), NULL);
+      GUM_INVOCATION_LISTENER (listener), listener_function_data);
 
   if (attach_ret != GUM_ATTACH_OK)
     goto unable_to_attach;
@@ -563,17 +569,19 @@ GUMJS_DEFINE_FUNCTION (gumjs_interceptor_replace)
 {
   GumDukInterceptor * self;
   GumDukCore * core = args->core;
-  gpointer target, replacement;
+  gpointer target, replacement_function, replacement_data;
   GumDukHeapPtr replacement_value;
   GumDukReplaceEntry * entry;
   GumReplaceReturn replace_ret;
 
   self = gumjs_module_from_args (args);
 
-  _gum_duk_args_parse (args, "pO", &target, &replacement_value);
+  replacement_data = NULL;
+  _gum_duk_args_parse (args, "pO|p", &target, &replacement_value,
+      &replacement_data);
 
   duk_push_heapptr (ctx, replacement_value);
-  if (!_gum_duk_get_pointer (ctx, -1, core, &replacement))
+  if (!_gum_duk_get_pointer (ctx, -1, core, &replacement_function))
     _gum_duk_throw (ctx, "expected a pointer");
   duk_pop (ctx);
 
@@ -583,8 +591,8 @@ GUMJS_DEFINE_FUNCTION (gumjs_interceptor_replace)
   entry->replacement = replacement_value;
   entry->core = core;
 
-  replace_ret = gum_interceptor_replace (self->interceptor, target, replacement,
-      NULL);
+  replace_ret = gum_interceptor_replace (self->interceptor, target,
+      replacement_function, replacement_data);
   if (replace_ret != GUM_REPLACE_OK)
     goto unable_to_replace;
 

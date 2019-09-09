@@ -26,10 +26,44 @@ static const gchar * gum_cmodule_builtins[] =
   "char * strrchr (const char * s, int c);",
 
   "typedef void * gpointer;",
+#if GLIB_SIZEOF_VOID_P == 8
+  "typedef unsigned long long gsize;",
+#else
+  "typedef unsigned int gsize;",
+#endif
   "typedef int gint;",
   "typedef unsigned int guint;",
 
+  "typedef void (* GCallback) (void);",
+
+  "typedef gpointer GumCpuContext;",
+
+  "#define GUM_IC_GET_THREAD_DATA(context, data_type) ((data_type *) "
+      "gum_invocation_context_get_listener_thread_data (context, "
+      "sizeof (data_type)))",
+  "#define GUM_IC_GET_FUNC_DATA(context, data_type) ((data_type) "
+      "gum_invocation_context_get_listener_function_data (context))",
+  "#define GUM_IC_GET_INVOCATION_DATA(context, data_type) ((data_type *) "
+      "gum_invocation_context_get_listener_invocation_data (context, "
+      "sizeof (data_type)))",
+
+  "#define GUM_IC_GET_REPLACEMENT_DATA(ctx, data_type) "
+      "((data_type) gum_invocation_context_get_replacement_data (ctx))",
+
   "typedef struct _GumInvocationContext GumInvocationContext;",
+  "typedef struct _GumInvocationBackend GumInvocationBackend;",
+
+  "struct _GumInvocationContext",
+  "{",
+  "  GCallback function;",
+  "  GumCpuContext * cpu_context;",
+  "  gint system_error;",
+
+  "  GumInvocationBackend * backend;",
+  "};",
+
+  "GumInvocationContext * gum_interceptor_get_current_invocation (void);",
+
   "gpointer gum_invocation_context_get_nth_argument ("
       "GumInvocationContext * ctx, guint n);",
   "void gum_invocation_context_replace_nth_argument ("
@@ -38,6 +72,23 @@ static const gchar * gum_cmodule_builtins[] =
       "GumInvocationContext * context);",
   "void gum_invocation_context_replace_return_value ("
       "GumInvocationContext * context, gpointer value);",
+
+  "gpointer gum_invocation_context_get_return_address ("
+      "GumInvocationContext * context);",
+
+  "guint gum_invocation_context_get_thread_id ("
+      "GumInvocationContext * context);",
+  "guint gum_invocation_context_get_depth (GumInvocationContext * context);",
+
+  "gpointer gum_invocation_context_get_listener_thread_data ("
+      "GumInvocationContext * context, gsize required_size);",
+  "gpointer gum_invocation_context_get_listener_function_data ("
+      "GumInvocationContext * context);",
+  "gpointer gum_invocation_context_get_listener_invocation_data ("
+      "GumInvocationContext * context, gsize required_size);",
+
+  "gpointer gum_invocation_context_get_replacement_data ("
+      "GumInvocationContext * context);",
 };
 
 GumCModule *
@@ -60,9 +111,9 @@ gum_cmodule_new (const gchar * source,
   tcc_set_options (state, "-nostdlib");
   tcc_set_output_type (state, TCC_OUTPUT_MEMORY);
 
-  combined_source = g_string_sized_new (256);
+  combined_source = g_string_sized_new (2048);
 
-  g_string_append (combined_source, "#line 1 \"gum-cmodule-builtins.h\"\n");
+  g_string_append (combined_source, "#line 1 \"module-builtins.h\"\n");
   for (i = 0; i != G_N_ELEMENTS (gum_cmodule_builtins); i++)
   {
     g_string_append (combined_source, gum_cmodule_builtins[i]);
@@ -89,10 +140,23 @@ gum_cmodule_new (const gchar * source,
   GUM_ADD_SYMBOL (strchr);
   GUM_ADD_SYMBOL (strrchr);
 
+  GUM_ADD_SYMBOL (gum_interceptor_get_current_invocation);
+
   GUM_ADD_SYMBOL (gum_invocation_context_get_nth_argument);
   GUM_ADD_SYMBOL (gum_invocation_context_replace_nth_argument);
   GUM_ADD_SYMBOL (gum_invocation_context_get_return_value);
   GUM_ADD_SYMBOL (gum_invocation_context_replace_return_value);
+
+  GUM_ADD_SYMBOL (gum_invocation_context_get_return_address);
+
+  GUM_ADD_SYMBOL (gum_invocation_context_get_thread_id);
+  GUM_ADD_SYMBOL (gum_invocation_context_get_depth);
+
+  GUM_ADD_SYMBOL (gum_invocation_context_get_listener_thread_data);
+  GUM_ADD_SYMBOL (gum_invocation_context_get_listener_function_data);
+  GUM_ADD_SYMBOL (gum_invocation_context_get_listener_invocation_data);
+
+  GUM_ADD_SYMBOL (gum_invocation_context_get_replacement_data);
 
 #undef GUM_ADD_SYMBOL
 

@@ -257,7 +257,8 @@ TESTLIST_BEGIN (script)
     TESTENTRY (cmodule_symbols_can_be_provided)
     TESTENTRY (cmodule_should_report_parsing_errors)
     TESTENTRY (cmodule_should_report_linking_errors)
-    TESTENTRY (cmodule_can_be_used_with_interceptor)
+    TESTENTRY (cmodule_can_be_used_with_interceptor_attach)
+    TESTENTRY (cmodule_can_be_used_with_interceptor_replace)
     TESTENTRY (cmodule_should_provide_some_builtin_string_functions)
   TESTGROUP_END ()
 
@@ -5400,35 +5401,140 @@ TESTCASE (cmodule_should_report_linking_errors)
       "Error: Compilation failed: tcc: error: undefined symbol 'v'");
 }
 
-TESTCASE (cmodule_can_be_used_with_interceptor)
+TESTCASE (cmodule_can_be_used_with_interceptor_attach)
 {
-  int seen_arg = -1;
-  int seen_ret = -1;
+  int seen_argval = -1;
+  int seen_retval = -1;
+  gpointer seen_return_address = NULL;
+  guint seen_thread_id = 0;
+  guint seen_depth = G_MAXUINT;
+  int seen_function_data = -1;
+  int seen_thread_state_calls = -1;
+  int seen_invocation_state_arg = -1;
 
   COMPILE_AND_LOAD_SCRIPT (
-      "Interceptor.attach(" GUM_PTR_CONST ", new CModule('\\n"
-      "  extern int seenArg;\\n"
-      "  extern int seenRet;\\n"
-      "  void onEnter (GumInvocationContext * ic) {\\n"
-      "    seenArg = (int) gum_invocation_context_get_nth_argument (ic, 0);\\n"
-      "    gum_invocation_context_replace_nth_argument (ic, 0,"
-      "        (gpointer) (seenArg + 1));\\n"
+      "Interceptor.attach(" GUM_PTR_CONST ", new CModule('"
+      "  typedef struct _ThreadState ThreadState;\\n"
+      "  typedef struct _InvState InvState;\\n"
+      "\\n"
+      "  struct _ThreadState\\n"
+      "  {\\n"
+      "    int calls;\\n"
+      "  };\\n"
+      "\\n"
+      "  struct _InvState\\n"
+      "  {\\n"
+      "    int arg;\\n"
+      "  };\\n"
+      "\\n"
+      "  extern int seenArgval;\\n"
+      "  extern int seenRetval;\\n"
+      "  extern gpointer seenReturnAddress;\\n"
+      "  extern guint seenThreadId;\\n"
+      "  extern guint seenDepth;\\n"
+      "  extern int seenFunctionData;\\n"
+      "  extern int seenThreadStateCalls;\\n"
+      "  extern int seenInvocationStateArg;\\n"
+      "\\n"
+      "  void\\n"
+      "  onEnter (GumInvocationContext * ic)\\n"
+      "  {\\n"
+      "    int arg = (int) gum_invocation_context_get_nth_argument (ic, 0);\\n"
+      "\\n"
+      "    seenArgval = arg;\\n"
+      "    gum_invocation_context_replace_nth_argument (ic, 0,\\n"
+      "        (gpointer) (arg + 1));\\n"
+      "\\n"
+      "    seenReturnAddress =\\n"
+      "        gum_invocation_context_get_return_address (ic);\\n"
+      "    seenThreadId = gum_invocation_context_get_thread_id (ic);\\n"
+      "    seenDepth = gum_invocation_context_get_depth (ic);\\n"
+      "\\n"
+      "    seenFunctionData = GUM_IC_GET_FUNC_DATA (ic, int);\\n"
+      "\\n"
+      "    ThreadState * ts = GUM_IC_GET_THREAD_DATA (ic, ThreadState);\\n"
+      "    ts->calls++;\\n"
+      "\\n"
+      "    InvState * is = GUM_IC_GET_INVOCATION_DATA (ic, InvState);\\n"
+      "    is->arg = seenArgval;\\n"
       "  }\\n"
-      "  void onLeave (GumInvocationContext * ic) {\\n"
-      "    seenRet = (int) gum_invocation_context_get_return_value (ic);\\n"
+      "\\n"
+      "  void\\n"
+      "  onLeave (GumInvocationContext * ic)\\n"
+      "  {\\n"
+      "    seenRetval = (int) gum_invocation_context_get_return_value (ic);\\n"
       "    gum_invocation_context_replace_return_value (ic, (gpointer) 42);\\n"
+      "\\n"
+      "    ThreadState * ts = GUM_IC_GET_THREAD_DATA (ic, ThreadState);\\n"
+      "    seenThreadStateCalls = ts->calls;\\n"
+      "\\n"
+      "    InvState * is = GUM_IC_GET_INVOCATION_DATA (ic, InvState);\\n"
+      "    seenInvocationStateArg = is->arg;\\n"
       "  }\\n"
       "', {"
-      "  seenArg: " GUM_PTR_CONST ","
-      "  seenRet: " GUM_PTR_CONST
-      "}));",
-      target_function_int, &seen_arg, &seen_ret);
+      "  seenArgval: " GUM_PTR_CONST ","
+      "  seenRetval: " GUM_PTR_CONST ","
+      "  seenReturnAddress: " GUM_PTR_CONST ","
+      "  seenThreadId: " GUM_PTR_CONST ","
+      "  seenDepth: " GUM_PTR_CONST ","
+      "  seenFunctionData: " GUM_PTR_CONST ","
+      "  seenThreadStateCalls: " GUM_PTR_CONST ","
+      "  seenInvocationStateArg: " GUM_PTR_CONST
+      "}), ptr(1911));",
+      target_function_int,
+      &seen_argval,
+      &seen_retval,
+      &seen_return_address,
+      &seen_thread_id,
+      &seen_depth,
+      &seen_function_data,
+      &seen_thread_state_calls,
+      &seen_invocation_state_arg);
 
   EXPECT_NO_MESSAGES ();
 
   g_assert_cmpint (target_function_int (1), ==, 42);
-  g_assert_cmpint (seen_arg, ==, 1);
-  g_assert_cmpint (seen_ret, ==, 90);
+  g_assert_cmpint (seen_argval, ==, 1);
+  g_assert_cmpint (seen_retval, ==, 90);
+  g_assert_nonnull (seen_return_address);
+  g_assert_cmpuint (seen_thread_id, ==, gum_process_get_current_thread_id ());
+  g_assert_cmpuint (seen_depth, ==, 0);
+  g_assert_cmpint (seen_function_data, ==, 1911);
+  g_assert_cmpint (seen_thread_state_calls, ==, 1);
+  g_assert_cmpint (seen_invocation_state_arg, ==, 1);
+
+  target_function_int (12);
+  g_assert_cmpint (seen_thread_state_calls, ==, 2);
+  g_assert_cmpint (seen_invocation_state_arg, ==, 12);
+}
+
+TESTCASE (cmodule_can_be_used_with_interceptor_replace)
+{
+  int seen_replacement_data = -1;
+
+  COMPILE_AND_LOAD_SCRIPT (
+      "var m = new CModule('"
+      "extern int seenReplacementData;\\n"
+      "\\n"
+      "int\\n"
+      "dummy (int arg)\\n"
+      "{\\n"
+      "  GumInvocationContext * ic =\\n"
+      "      gum_interceptor_get_current_invocation ();\\n"
+      "  seenReplacementData = GUM_IC_GET_REPLACEMENT_DATA (ic, int);\\n"
+      "\\n"
+      "  return 1337;\\n"
+      "}\\n"
+      "', { seenReplacementData: " GUM_PTR_CONST " });"
+      "Interceptor.replace(" GUM_PTR_CONST ", m.dummy, ptr(1911));",
+      &seen_replacement_data, target_function_int);
+
+  EXPECT_NO_MESSAGES ();
+  g_assert_cmpint (target_function_int (7), ==, 1337);
+  g_assert_cmpint (seen_replacement_data, ==, 1911);
+
+  gum_script_unload_sync (fixture->script, NULL);
+  g_assert_cmpint (target_function_int (7), ==, 315);
 }
 
 TESTCASE (cmodule_should_provide_some_builtin_string_functions)
