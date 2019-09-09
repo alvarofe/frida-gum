@@ -132,6 +132,9 @@ static const gchar * gum_cmodule_builtins[] =
   "void g_cond_signal (GCond * cond);",
   "void g_cond_broadcast (GCond * cond);",
 
+  "gint g_atomic_int_add (volatile gint * atomic, gint val);",
+  "gssize g_atomic_pointer_add (volatile void * atomic, gssize val);",
+
   "typedef struct _GumCpuContext GumCpuContext;",
 
   "struct _GumCpuContext",
@@ -368,6 +371,9 @@ gum_cmodule_new (const gchar * source,
   GUM_ADD_SYMBOL (g_cond_wait);
   GUM_ADD_SYMBOL (g_cond_signal);
   GUM_ADD_SYMBOL (g_cond_broadcast);
+
+  GUM_ADD_SYMBOL (g_atomic_int_add);
+  GUM_ADD_SYMBOL (g_atomic_pointer_add);
 
   GUM_ADD_SYMBOL (gum_interceptor_get_current_invocation);
 
