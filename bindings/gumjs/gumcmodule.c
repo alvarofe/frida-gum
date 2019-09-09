@@ -53,7 +53,17 @@ static const gchar * gum_cmodule_builtins[] =
   "void * memcpy (void * restrict dst, const void * restrict src, size_t n);",
   "void * memmove (void * dst, const void * src, size_t len);",
 
+  "typedef struct _FILE FILE;",
+  "int puts (const char * s);"
+  "int fputs (const char * restrict s, FILE * restrict stream);",
+  "int fflush (FILE * stream);",
+  "int printf (const char * restrict format, ...);",
+  "int fprintf (FILE * restrict stream, const char * restrict format, ...);",
+  "extern FILE * stdout;",
+  "extern FILE * stderr;",
+
   "typedef void * gpointer;",
+  "typedef const void * gconstpointer;",
 
   "typedef ssize_t gssize;",
   "typedef size_t gsize;",
@@ -76,7 +86,48 @@ static const gchar * gum_cmodule_builtins[] =
   "typedef char gchar;",
   "typedef unsigned char guchar;",
 
+  "typedef gint gboolean;",
+
   "typedef void (* GCallback) (void);",
+
+  "gchar * g_strdup_printf (const gchar * format, ...);",
+  "gpointer g_malloc (gsize n_bytes);",
+  "gpointer g_malloc0 (gsize n_bytes);",
+  "gpointer g_realloc (gpointer mem, gsize n_bytes);",
+  "gpointer g_memdup (gconstpointer mem, guint byte_size);",
+  "void g_free (gpointer mem);",
+
+  "typedef struct _GThread GThread;",
+  "typedef gpointer (* GThreadFunc) (gpointer data);",
+  "GThread * g_thread_new (const gchar * name, GThreadFunc func, "
+      "gpointer data);",
+  "gpointer g_thread_join (GThread * thread);",
+  "GThread * g_thread_ref (GThread * thread);",
+  "void g_thread_unref (GThread * thread);",
+  "void g_thread_yield (void);",
+
+  "typedef union _GMutex GMutex;",
+  "typedef struct _GCond GCond;",
+  "union _GMutex",
+  "{",
+  "  gpointer p;",
+  "  guint i[2];",
+  "};",
+  "struct _GCond",
+  "{",
+  "  gpointer p;",
+  "  guint i[2];",
+  "};",
+  "void g_mutex_init (GMutex * mutex);",
+  "void g_mutex_clear (GMutex * mutex);",
+  "void g_mutex_lock (GMutex * mutex);",
+  "void g_mutex_unlock (GMutex * mutex);",
+  "gboolean g_mutex_trylock (GMutex * mutex);",
+  "void g_cond_init (GCond * cond);",
+  "void g_cond_clear (GCond * cond);",
+  "void g_cond_wait (GCond * cond, GMutex * mutex);",
+  "void g_cond_signal (GCond * cond);",
+  "void g_cond_broadcast (GCond * cond);",
 
   "typedef struct _GumCpuContext GumCpuContext;",
 
@@ -282,6 +333,38 @@ gum_cmodule_new (const gchar * source,
   GUM_ADD_SYMBOL (strstr);
   GUM_ADD_SYMBOL (strchr);
   GUM_ADD_SYMBOL (strrchr);
+
+  GUM_ADD_SYMBOL (puts);
+  GUM_ADD_SYMBOL (fputs);
+  GUM_ADD_SYMBOL (fflush);
+  GUM_ADD_SYMBOL (printf);
+  GUM_ADD_SYMBOL (fprintf);
+  GUM_ADD_SYMBOL (stdout);
+  GUM_ADD_SYMBOL (stderr);
+
+  GUM_ADD_SYMBOL (g_strdup_printf);
+  GUM_ADD_SYMBOL (g_malloc);
+  GUM_ADD_SYMBOL (g_malloc0);
+  GUM_ADD_SYMBOL (g_realloc);
+  GUM_ADD_SYMBOL (g_memdup);
+  GUM_ADD_SYMBOL (g_free);
+
+  GUM_ADD_SYMBOL (g_thread_new);
+  GUM_ADD_SYMBOL (g_thread_join);
+  GUM_ADD_SYMBOL (g_thread_ref);
+  GUM_ADD_SYMBOL (g_thread_unref);
+  GUM_ADD_SYMBOL (g_thread_yield);
+
+  GUM_ADD_SYMBOL (g_mutex_init);
+  GUM_ADD_SYMBOL (g_mutex_clear);
+  GUM_ADD_SYMBOL (g_mutex_lock);
+  GUM_ADD_SYMBOL (g_mutex_unlock);
+  GUM_ADD_SYMBOL (g_mutex_trylock);
+  GUM_ADD_SYMBOL (g_cond_init);
+  GUM_ADD_SYMBOL (g_cond_clear);
+  GUM_ADD_SYMBOL (g_cond_wait);
+  GUM_ADD_SYMBOL (g_cond_signal);
+  GUM_ADD_SYMBOL (g_cond_broadcast);
 
   GUM_ADD_SYMBOL (gum_interceptor_get_current_invocation);
 
