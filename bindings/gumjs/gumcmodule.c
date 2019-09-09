@@ -20,19 +20,61 @@ static void gum_propagate_tcc_error (void * opaque, const char * msg);
 
 static const gchar * gum_cmodule_builtins[] =
 {
+  "typedef signed char int8_t;",
+  "typedef unsigned char uint8_t;",
+
+  "typedef signed short int int16_t;",
+  "typedef unsigned short int uint16_t;",
+
+  "typedef signed int int32_t;",
+  "typedef unsigned int uint32_t;",
+
+#ifdef __LP64__
+  "typedef signed long int int64_t;",
+  "typedef unsigned long int uint64_t;",
+#else
+  "typedef signed long long int int64_t;",
+  "typedef unsigned long long int uint64_t;",
+#endif
+
+#if GLIB_SIZEOF_VOID_P == 8
+  "typedef int64_t ssize_t;",
+  "typedef uint64_t size_t;",
+#else
+  "typedef int32_t ssize_t;",
+  "typedef uint32_t size_t;",
+#endif
+
+  "size_t strlen (const char * s);",
   "int strcmp (const char * s1, const char * s2);",
   "char * strstr (const char * haystack, const char * needle);",
   "char * strchr (const char * s, int c);",
   "char * strrchr (const char * s, int c);",
+  "void * memcpy (void * restrict dst, const void * restrict src, size_t n);",
+  "void * memmove (void * dst, const void * src, size_t len);",
 
   "typedef void * gpointer;",
-#if GLIB_SIZEOF_VOID_P == 8
-  "typedef unsigned long long gsize;",
-#else
-  "typedef unsigned int gsize;",
-#endif
+
+  "typedef ssize_t gssize;",
+  "typedef size_t gsize;",
+
   "typedef int gint;",
   "typedef unsigned int guint;",
+
+  "typedef int8_t gint8;",
+  "typedef uint8_t guint8;",
+
+  "typedef int16_t gint16;",
+  "typedef uint16_t guint16;",
+
+  "typedef int32_t gint32;",
+  "typedef uint32_t guint32;",
+
+  "typedef int64_t gint64;",
+  "typedef uint64_t guint64;",
+
+  "typedef char gchar;",
+  "typedef unsigned char guchar;",
 
   "typedef void (* GCallback) (void);",
 
@@ -135,6 +177,7 @@ gum_cmodule_new (const gchar * source,
 #define GUM_ADD_SYMBOL(name) \
   tcc_add_symbol (state, G_STRINGIFY (name), name)
 
+  GUM_ADD_SYMBOL (strlen);
   GUM_ADD_SYMBOL (strcmp);
   GUM_ADD_SYMBOL (strstr);
   GUM_ADD_SYMBOL (strchr);

@@ -5539,33 +5539,61 @@ TESTCASE (cmodule_can_be_used_with_interceptor_replace)
 
 TESTCASE (cmodule_should_provide_some_builtin_string_functions)
 {
+  guint8 buf[2] = { 0, 0 };
   int (* score_impl) (const char * str);
 
   COMPILE_AND_LOAD_SCRIPT (
       "var m = new CModule('"
+      "extern guint8 buf[2];"
       ""
       "int\\n"
       "score (const char * str)\\n"
       "{\\n"
-      "  if (strcmp (str, \"1234\") == 0)\\n"
+      "  if (strlen (str) == 1)\\n"
       "    return 1;\\n"
-      "  if (strstr (str, \"badger\") == str + 4)\\n"
+      "  if (strcmp (str, \"1234\") == 0)\\n"
       "    return 2;\\n"
-      "  if (strchr (str, \\'!\\') == str + 3)\\n"
+      "  if (strstr (str, \"badger\") == str + 4)\\n"
       "    return 3;\\n"
-      "  if (strrchr (str, \\'/\\') == str + 8)\\n"
+      "  if (strchr (str, \\'!\\') == str + 3)\\n"
       "    return 4;\\n"
+      "  if (strrchr (str, \\'/\\') == str + 8)\\n"
+      "    return 5;\\n"
+      "  if (strlen (str) == 2)\\n"
+      "  {\\n"
+      "    memcpy (buf, str, 2);\\n"
+      "    return 6;\\n"
+      "  }\\n"
+      "  if (strlen (str) == 3)\\n"
+      "  {\\n"
+      "    memmove (buf, str + 1, 2);\\n"
+      "    return 7;\\n"
+      "  }\\n"
       "  return -1;\\n"
       "}"
-      "');"
-      "send(m.score);");
+      "', { buf: " GUM_PTR_CONST " });"
+      "send(m.score);",
+      buf);
 
   score_impl = EXPECT_SEND_MESSAGE_WITH_POINTER ();
   g_assert_nonnull (score_impl);
-  g_assert_cmpint (score_impl ("1234"), ==, 1);
-  g_assert_cmpint (score_impl ("Goodbadger"), ==, 2);
-  g_assert_cmpint (score_impl ("Yay!"), ==, 3);
-  g_assert_cmpint (score_impl ("/path/to/file"), ==, 4);
+
+  g_assert_cmpint (score_impl ("x"), ==, 1);
+  g_assert_cmpint (score_impl ("1234"), ==, 2);
+  g_assert_cmpint (score_impl ("Goodbadger"), ==, 3);
+  g_assert_cmpint (score_impl ("Yay!"), ==, 4);
+  g_assert_cmpint (score_impl ("/path/to/file"), ==, 5);
+
+  g_assert_cmphex (buf[0], ==, 0);
+  g_assert_cmphex (buf[1], ==, 0);
+  g_assert_cmpint (score_impl ("xy"), ==, 6);
+  g_assert_cmphex (buf[0], ==, 'x');
+  g_assert_cmphex (buf[1], ==, 'y');
+
+  memset (buf, 0, sizeof (buf));
+  g_assert_cmpint (score_impl ("xyz"), ==, 7);
+  g_assert_cmphex (buf[0], ==, 'y');
+  g_assert_cmphex (buf[1], ==, 'z');
 }
 
 TESTCASE (script_can_be_compiled_to_bytecode)
