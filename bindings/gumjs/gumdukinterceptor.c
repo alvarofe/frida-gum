@@ -508,7 +508,7 @@ GUMJS_DEFINE_FUNCTION (gumjs_interceptor_attach)
   _gum_duk_put_data (ctx, -1, listener);
 
   duk_dup (ctx, 1);
-  duk_put_prop_string (ctx, -2, DUK_HIDDEN_SYMBOL ("code"));
+  duk_put_prop_string (ctx, -2, DUK_HIDDEN_SYMBOL ("resource"));
 
   g_hash_table_add (self->invocation_listeners, listener);
 

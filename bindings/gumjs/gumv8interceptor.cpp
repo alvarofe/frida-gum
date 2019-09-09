@@ -38,6 +38,7 @@ struct GumV8InvocationListener
     GumPersistent<Function>::type * on_leave_js;
     void (* on_leave_c) (GumInvocationContext * ic);
   };
+  GumPersistent<Object>::type * resource;
 
   GumV8Interceptor * module;
 };
@@ -146,6 +147,7 @@ G_DEFINE_TYPE_EXTENDED (GumV8JSProbeListener,
 
 static void gum_v8_c_call_listener_iface_init (gpointer g_iface,
     gpointer iface_data);
+static void gum_v8_c_call_listener_dispose (GObject * object);
 G_DEFINE_TYPE_EXTENDED (GumV8CCallListener,
                         gum_v8_c_call_listener,
                         G_TYPE_OBJECT,
@@ -155,6 +157,7 @@ G_DEFINE_TYPE_EXTENDED (GumV8CCallListener,
 
 static void gum_v8_c_probe_listener_iface_init (gpointer g_iface,
     gpointer iface_data);
+static void gum_v8_c_probe_listener_dispose (GObject * object);
 G_DEFINE_TYPE_EXTENDED (GumV8CProbeListener,
                         gum_v8_c_probe_listener,
                         G_TYPE_OBJECT,
@@ -717,6 +720,18 @@ gum_v8_js_invocation_listener_dispose (GumV8InvocationListener * self)
 
   delete self->on_leave_js;
   self->on_leave_js = nullptr;
+
+  delete self->resource;
+  self->resource = nullptr;
+}
+
+static void
+gum_v8_c_invocation_listener_dispose (GumV8InvocationListener * self)
+{
+  ScriptScope scope (self->module->core->script);
+
+  delete self->resource;
+  self->resource = nullptr;
 }
 
 static void
@@ -909,6 +924,9 @@ gum_v8_js_probe_listener_dispose (GObject * object)
 static void
 gum_v8_c_call_listener_class_init (GumV8CCallListenerClass * klass)
 {
+  auto object_class = G_OBJECT_CLASS (klass);
+
+  object_class->dispose = gum_v8_c_call_listener_dispose;
 }
 
 static void
@@ -927,8 +945,21 @@ gum_v8_c_call_listener_init (GumV8CCallListener * self)
 }
 
 static void
+gum_v8_c_call_listener_dispose (GObject * object)
+{
+  auto self = GUM_V8_INVOCATION_LISTENER_CAST (object);
+
+  gum_v8_c_invocation_listener_dispose (self);
+
+  G_OBJECT_CLASS (gum_v8_c_call_listener_parent_class)->dispose (object);
+}
+
+static void
 gum_v8_c_probe_listener_class_init (GumV8CProbeListenerClass * klass)
 {
+  auto object_class = G_OBJECT_CLASS (klass);
+
+  object_class->dispose = gum_v8_c_probe_listener_dispose;
 }
 
 static void
@@ -944,6 +975,16 @@ gum_v8_c_probe_listener_iface_init (gpointer g_iface,
 static void
 gum_v8_c_probe_listener_init (GumV8CProbeListener * self)
 {
+}
+
+static void
+gum_v8_c_probe_listener_dispose (GObject * object)
+{
+  auto self = GUM_V8_INVOCATION_LISTENER_CAST (object);
+
+  gum_v8_c_invocation_listener_dispose (self);
+
+  G_OBJECT_CLASS (gum_v8_c_probe_listener_parent_class)->dispose (object);
 }
 
 static GumV8InvocationContext *
