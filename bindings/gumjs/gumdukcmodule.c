@@ -29,6 +29,11 @@ _gum_duk_cmodule_init (GumDukCModule * self,
 
   self->core = core;
 
+  self->cmodules = g_hash_table_new_full (NULL, NULL, NULL,
+      (GDestroyNotify) gum_cmodule_free);
+
+  _gum_duk_store_module_data (ctx, "cmodule", self);
+
   duk_push_c_function (ctx, gumjs_cmodule_construct, 2);
   duk_push_object (ctx);
   duk_put_function_list (ctx, -1, gumjs_cmodule_functions);
@@ -41,24 +46,36 @@ _gum_duk_cmodule_init (GumDukCModule * self,
 void
 _gum_duk_cmodule_dispose (GumDukCModule * self)
 {
+  g_hash_table_remove_all (self->cmodules);
 }
 
 void
 _gum_duk_cmodule_finalize (GumDukCModule * self)
 {
+  g_clear_pointer (&self->cmodules, g_hash_table_unref);
+}
+
+static GumDukCModule *
+gumjs_module_from_args (const GumDukArgs * args)
+{
+  return _gum_duk_load_module_data (args->ctx, "cmodule");
 }
 
 static GumCModule *
 gumjs_cmodule_from_args (const GumDukArgs * args)
 {
+  GumCModule * cmodule;
   duk_context * ctx = args->ctx;
-  GumCModule * self;
 
   duk_push_this (ctx);
-  self = _gum_duk_require_data (ctx, -1);
+  cmodule = g_hash_table_lookup (gumjs_module_from_args (args)->cmodules,
+      duk_require_heapptr (ctx, -1));
   duk_pop (ctx);
 
-  return self;
+  if (cmodule == NULL)
+    _gum_duk_throw (ctx, "invalid operation");
+
+  return cmodule;
 }
 
 GUMJS_DEFINE_CONSTRUCTOR (gumjs_cmodule_construct)
@@ -103,7 +120,8 @@ GUMJS_DEFINE_CONSTRUCTOR (gumjs_cmodule_construct)
   if (!gum_cmodule_link (cmodule, &error))
     goto failure;
 
-  _gum_duk_put_data (ctx, -1, cmodule);
+  g_hash_table_insert (gumjs_module_from_args (args)->cmodules,
+      duk_require_heapptr (ctx, -1), cmodule);
 
   return 0;
 
@@ -122,13 +140,8 @@ failure:
 
 GUMJS_DEFINE_FINALIZER (gumjs_cmodule_finalize)
 {
-  GumCModule * self;
-
-  self = _gum_duk_steal_data (ctx, 0);
-  if (self == NULL)
-    return 0;
-
-  gum_cmodule_free (self);
+  g_hash_table_remove (gumjs_module_from_args (args)->cmodules,
+      duk_require_heapptr (ctx, 0));
 
   return 0;
 }

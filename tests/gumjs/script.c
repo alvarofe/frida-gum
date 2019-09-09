@@ -257,6 +257,7 @@ TESTLIST_BEGIN (script)
     TESTENTRY (cmodule_symbols_can_be_provided)
     TESTENTRY (cmodule_should_report_parsing_errors)
     TESTENTRY (cmodule_should_report_linking_errors)
+    TESTENTRY (cmodule_should_provide_lifecycle_hooks)
     TESTENTRY (cmodule_can_be_used_with_interceptor_attach)
     TESTENTRY (cmodule_can_be_used_with_interceptor_replace)
     TESTENTRY (cmodule_should_provide_some_builtin_string_functions)
@@ -5400,6 +5401,35 @@ TESTCASE (cmodule_should_report_linking_errors)
       "extern int v; int f (void) { return v; }');");
   EXPECT_ERROR_MESSAGE_WITH (ANY_LINE_NUMBER,
       "Error: Compilation failed: tcc: error: undefined symbol 'v'");
+}
+
+TESTCASE (cmodule_should_provide_lifecycle_hooks)
+{
+  COMPILE_AND_LOAD_SCRIPT (
+      "var m = new CModule('"
+      ""
+      "extern void notify (int n);\\n"
+      "\\n"
+      "void\\n"
+      "init (void)\\n"
+      "{\\n"
+      "  notify (1);\\n"
+      "}\\n"
+      "\\n"
+      "void\\n"
+      "finalize (void)\\n"
+      "{\\n"
+      "  notify (2);\\n"
+      "}\\n"
+      "', {"
+      "  notify: new NativeCallback(function (n) { send(n); }, 'void', ['int'])"
+      "});");
+  EXPECT_SEND_MESSAGE_WITH ("1");
+  EXPECT_NO_MESSAGES ();
+
+  UNLOAD_SCRIPT ();
+  EXPECT_SEND_MESSAGE_WITH ("2");
+  EXPECT_NO_MESSAGES ();
 }
 
 TESTCASE (cmodule_can_be_used_with_interceptor_attach)

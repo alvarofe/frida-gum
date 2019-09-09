@@ -18,6 +18,9 @@ struct _GumCModule
 
 static void gum_propagate_tcc_error (void * opaque, const char * msg);
 
+static void gum_cmodule_call_init (GumCModule * self);
+static void gum_cmodule_call_finalize (GumCModule * self);
+
 static const gchar * gum_cmodule_builtins[] =
 {
   "typedef signed char int8_t;",
@@ -406,6 +409,8 @@ gum_cmodule_free (GumCModule * cmodule)
   r = &cmodule->range;
   if (r->base_address != 0)
   {
+    gum_cmodule_call_finalize (cmodule);
+
     gum_cloak_remove_range (r);
 
     gum_memory_free (GSIZE_TO_POINTER (r->base_address), r->size);
@@ -455,6 +460,8 @@ gum_cmodule_link (GumCModule * self,
     gum_memory_mark_code (base, size);
 
     gum_cloak_add_range (r);
+
+    gum_cmodule_call_init (self);
   }
   else
   {
@@ -487,4 +494,24 @@ gum_propagate_tcc_error (void * opaque,
     g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
         "Compilation failed: %s", msg);
   }
+}
+
+static void
+gum_cmodule_call_init (GumCModule * self)
+{
+  void (* init) (void);
+
+  init = tcc_get_symbol (self->state, "init");
+  if (init != NULL)
+    init ();
+}
+
+static void
+gum_cmodule_call_finalize (GumCModule * self)
+{
+  void (* finalize) (void);
+
+  finalize = tcc_get_symbol (self->state, "finalize");
+  if (finalize != NULL)
+    finalize ();
 }

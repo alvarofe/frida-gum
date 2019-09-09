@@ -16,6 +16,8 @@ typedef struct _GumDukCModule GumDukCModule;
 struct _GumDukCModule
 {
   GumDukCore * core;
+
+  GHashTable * cmodules;
 };
 
 G_GNUC_INTERNAL void _gum_duk_cmodule_init (GumDukCModule * self,
