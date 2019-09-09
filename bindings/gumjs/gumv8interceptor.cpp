@@ -542,8 +542,15 @@ GUMJS_DEFINE_FUNCTION (gumjs_interceptor_attach)
 
     if (!on_enter_js.IsEmpty () || !on_leave_js.IsEmpty ())
     {
-      on_enter = new GumPersistent<Function>::type (isolate, on_enter_js);
-      on_leave = new GumPersistent<Function>::type (isolate, on_leave_js);
+      if (!on_enter_js.IsEmpty ())
+        on_enter = new GumPersistent<Function>::type (isolate, on_enter_js);
+      else
+        on_enter = NULL;
+
+      if (!on_leave_js.IsEmpty ())
+        on_leave = new GumPersistent<Function>::type (isolate, on_leave_js);
+      else
+        on_leave = NULL;
 
       listener = GUM_V8_INVOCATION_LISTENER_CAST (
           g_object_new (GUM_V8_TYPE_JS_CALL_LISTENER, NULL));
