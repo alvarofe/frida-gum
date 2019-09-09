@@ -178,6 +178,7 @@ gumjs = library('frida-gumjs-' + api_version, gumjs_sources,
   override_options: ['cpp_std=c++11'],
   include_directories: [bindings_inc],
   dependencies: [gum_dep, gio_dep, json_glib_dep, ffi_dep, tinycc_dep, sqlite_dep, libsoup_dep] + gumjs_extra_deps,
+  objects: tinycc.extract_all_objects(),
   install: true,
 )
 
