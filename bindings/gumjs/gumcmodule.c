@@ -19,8 +19,18 @@ struct _GumCModule
 static void gum_propagate_tcc_error (void * opaque, const char * msg);
 
 static const gchar * gum_cmodule_builtins =
-    "typedef struct _InvocationContext InvocationContext;\n"
-    "void* getArg(InvocationContext* ctx, unsigned int n);\n"
+    "typedef void * gpointer;\n"
+    "typedef int gint;\n"
+    "typedef unsigned int guint;\n"
+    "typedef struct _GumInvocationContext GumInvocationContext;\n"
+    "gpointer gum_invocation_context_get_nth_argument ("
+        "GumInvocationContext * ctx, guint n);\n"
+    "void gum_invocation_context_replace_nth_argument ("
+        "GumInvocationContext * context, guint n, gpointer value);\n"
+    "gpointer gum_invocation_context_get_return_value ("
+        "GumInvocationContext * context);\n"
+    "void gum_invocation_context_replace_return_value ("
+        "GumInvocationContext * context, gpointer value);\n"
     ;
 
 GumCModule *
@@ -53,7 +63,15 @@ gum_cmodule_new (const gchar * source,
   if (res == -1)
     goto failure;
 
-  tcc_add_symbol (state, "getArg", gum_invocation_context_get_nth_argument);
+#define GUM_ADD_SYMBOL(name) \
+  tcc_add_symbol (state, G_STRINGIFY (name), name)
+
+  GUM_ADD_SYMBOL (gum_invocation_context_get_nth_argument);
+  GUM_ADD_SYMBOL (gum_invocation_context_replace_nth_argument);
+  GUM_ADD_SYMBOL (gum_invocation_context_get_return_value);
+  GUM_ADD_SYMBOL (gum_invocation_context_replace_return_value);
+
+#undef GUM_ADD_SYMBOL
 
   return cmodule;
 

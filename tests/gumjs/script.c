@@ -5402,22 +5402,32 @@ TESTCASE (cmodule_should_report_linking_errors)
 TESTCASE (cmodule_can_be_used_with_interceptor)
 {
   int seen_arg = -1;
+  int seen_ret = -1;
 
   COMPILE_AND_LOAD_SCRIPT (
       "Interceptor.attach(" GUM_PTR_CONST ", new CModule('\\n"
       "  extern int seenArg;\\n"
-      "  void onEnter(InvocationContext* ic) {\\n"
-      "    seenArg = (int) getArg(ic, 0);\\n"
+      "  extern int seenRet;\\n"
+      "  void onEnter (GumInvocationContext * ic) {\\n"
+      "    seenArg = (int) gum_invocation_context_get_nth_argument (ic, 0);\\n"
+      "    gum_invocation_context_replace_nth_argument (ic, 0,"
+      "        (gpointer) (seenArg + 1));\\n"
       "  }\\n"
-      "  void onLeave(InvocationContext* ic) {\\n"
+      "  void onLeave (GumInvocationContext * ic) {\\n"
+      "    seenRet = (int) gum_invocation_context_get_return_value (ic);\\n"
+      "    gum_invocation_context_replace_return_value (ic, (gpointer) 42);\\n"
       "  }\\n"
-      "', { seenArg: " GUM_PTR_CONST " }));",
-      target_function_int, &seen_arg);
+      "', {"
+      "  seenArg: " GUM_PTR_CONST ","
+      "  seenRet: " GUM_PTR_CONST
+      "}));",
+      target_function_int, &seen_arg, &seen_ret);
 
   EXPECT_NO_MESSAGES ();
 
-  target_function_int (42);
-  g_assert_cmpint (seen_arg, ==, 42);
+  g_assert_cmpint (target_function_int (1), ==, 42);
+  g_assert_cmpint (seen_arg, ==, 1);
+  g_assert_cmpint (seen_ret, ==, 90);
 }
 
 TESTCASE (script_can_be_compiled_to_bytecode)
