@@ -449,14 +449,16 @@ GUMJS_DEFINE_FUNCTION (gumjs_interceptor_attach)
 
   if (duk_is_function (ctx, 1))
   {
-    _gum_duk_args_parse (args, "pF", &target, &on_enter);
+    target = _gum_duk_require_pointer (ctx, 0, core);
+    on_enter = duk_require_heapptr (ctx, 1);
     on_leave = NULL;
 
     listener = g_object_new (GUM_DUK_TYPE_JS_PROBE_LISTENER, NULL);
   }
   else if (duk_instanceof (ctx, 1, -1))
   {
-    _gum_duk_args_parse (args, "pp", &target, &on_enter);
+    target = _gum_duk_require_pointer (ctx, 0, core);
+    on_enter = _gum_duk_require_pointer (ctx, 1, core);
     on_leave = NULL;
 
     listener = g_object_new (GUM_DUK_TYPE_C_PROBE_LISTENER, NULL);

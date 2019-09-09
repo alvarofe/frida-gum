@@ -278,7 +278,7 @@ _gum_duk_args_parse (const GumDukArgs * args,
       {
         GumDukHeapPtr func_js;
         gpointer func_c;
-        gboolean accepts_pointer, is_expecting_object, is_nullable;
+        gboolean accepts_pointer, is_expecting_object;
 
         accepts_pointer = t[1] == '*';
         if (accepts_pointer)
@@ -299,6 +299,7 @@ _gum_duk_args_parse (const GumDukArgs * args,
           {
             gchar name[64];
             gsize length;
+            gboolean is_optional;
 
             next = strchr (t, ',');
             end = strchr (t, '}');
@@ -306,8 +307,8 @@ _gum_duk_args_parse (const GumDukArgs * args,
             length = t_end - t;
             strncpy (name, t, length);
 
-            is_nullable = name[length - 1] == '?';
-            if (is_nullable)
+            is_optional = name[length - 1] == '?';
+            if (is_optional)
               name[length - 1] = '\0';
             else
               name[length] = '\0';
@@ -318,15 +319,15 @@ _gum_duk_args_parse (const GumDukArgs * args,
               func_js = duk_require_heapptr (ctx, -1);
               func_c = NULL;
             }
-            else if (is_nullable && duk_is_null_or_undefined (ctx, -1))
+            else if (is_optional && duk_is_undefined (ctx, -1))
             {
               func_js = NULL;
               func_c = NULL;
             }
-            else if (accepts_pointer &&
-                _gum_duk_get_pointer (ctx, -1, core, &func_c))
+            else if (accepts_pointer)
             {
               func_js = NULL;
+              func_c = _gum_duk_require_native_pointer (ctx, -1, core)->value;
             }
             else
             {
@@ -347,6 +348,8 @@ _gum_duk_args_parse (const GumDukArgs * args,
         }
         else
         {
+          gboolean is_nullable;
+
           is_nullable = t[1] == '?';
           if (is_nullable)
             t++;
@@ -361,10 +364,11 @@ _gum_duk_args_parse (const GumDukArgs * args,
             func_js = NULL;
             func_c = NULL;
           }
-          else if (accepts_pointer &&
-              _gum_duk_get_pointer (ctx, arg_index, core, &func_c))
+          else if (accepts_pointer)
           {
             func_js = NULL;
+            func_c = _gum_duk_require_native_pointer (ctx, arg_index,
+                core)->value;
           }
           else
           {
