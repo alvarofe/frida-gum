@@ -260,6 +260,7 @@ TESTLIST_BEGIN (script)
     TESTENTRY (cmodule_can_be_used_with_interceptor_attach)
     TESTENTRY (cmodule_can_be_used_with_interceptor_replace)
     TESTENTRY (cmodule_should_provide_some_builtin_string_functions)
+    TESTENTRY (cmodule_should_provide_access_to_cpu_registers)
   TESTGROUP_END ()
 
   TESTGROUP_BEGIN ("Instruction")
@@ -5594,6 +5595,40 @@ TESTCASE (cmodule_should_provide_some_builtin_string_functions)
   g_assert_cmpint (score_impl ("xyz"), ==, 7);
   g_assert_cmphex (buf[0], ==, 'y');
   g_assert_cmphex (buf[1], ==, 'z');
+}
+
+TESTCASE (cmodule_should_provide_access_to_cpu_registers)
+{
+  int seen_value = -1;
+
+  COMPILE_AND_LOAD_SCRIPT (
+      "Interceptor.attach(" GUM_PTR_CONST ", new CModule('"
+      "  extern int seenValue;\\n"
+      ""
+      "  void\\n"
+      "  onEnter (GumInvocationContext * ic)\\n"
+      "  {\\n"
+#if defined (HAVE_I386) && GLIB_SIZEOF_VOID_P == 4
+      "    seenValue = *((int *) (ic->cpu_context->esp + 4));\\n"
+#elif defined (HAVE_I386) && GLIB_SIZEOF_VOID_P == 8
+      "    seenValue = ic->cpu_context->rdi;\\n"
+#elif defined (HAVE_ARM)
+      "    seenValue = ic->cpu_context->r[0];\\n"
+#elif defined (HAVE_ARM64)
+      "    seenValue = ic->cpu_context->x[0];\\n"
+#elif defined (HAVE_MIPS)
+      "    seenValue = ic->cpu_context->a0;\\n"
+#endif
+      "  }\\n"
+      "\\n"
+      "', { seenValue: " GUM_PTR_CONST "}));",
+      target_function_int,
+      &seen_value);
+
+  EXPECT_NO_MESSAGES ();
+
+  target_function_int (42);
+  g_assert_cmpint (seen_value, ==, 42);
 }
 
 TESTCASE (script_can_be_compiled_to_bytecode)
