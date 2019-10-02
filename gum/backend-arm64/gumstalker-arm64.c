@@ -2434,15 +2434,19 @@ gum_exec_block_virtualize_branch_insn (GumExecBlock * block,
     g_assert_not_reached ();
   }
 
-  if (insn->ci->id == ARM64_INS_BL || insn->ci->id == ARM64_INS_BLR)
+  /* Only emit call events for BR and BLR to get cross_references */
+  if (insn->ci->id == ARM64_INS_BR || insn->ci->id == ARM64_INS_BLR)
   {
-    gboolean target_is_excluded = FALSE;
-
     if ((block->ctx->sink_mask & GUM_CALL) != 0)
     {
       gum_exec_block_write_call_event_code (block, &target, gc,
           GUM_CODE_INTERRUPTIBLE);
     }
+  }
+
+  if (insn->ci->id == ARM64_INS_BL || insn->ci->id == ARM64_INS_BLR)
+  {
+    gboolean target_is_excluded = FALSE;
 
     if (block->ctx->stalker->any_probes_attached)
     {
